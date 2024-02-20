@@ -17,9 +17,43 @@ update_branch_taken = pyrtl.Input(bitwidth=1, name='update_branch_taken') # whet
 # Outputs
 pred_taken = pyrtl.Output(bitwidth=1, name='pred_taken')
 
-pred_state = pyrtl.MemBlock(...
+#two bit predictor
+def update_state(current_state, taken):
+    new_pred_state = pyrtl.WireVector(bitwidth=2, name='new_pred_state')
+
+    with pyrtl.conditional_assignment:
+        with taken:
+            with current_state != 3:
+                new_pred_state |= current_state + 1
+        with taken == 0:
+            with current_state != 0:
+                new_pred_state |= current_state - 1
+
+    return new_pred_state
 
 # Write your BHT branch predictor here
+branch_hist_table = pyrtl.MemBlock(bitwidth=2, addrwidth=3, name='branch_hist_table')
+curr_entry = pyrtl.WireVector(bitwidth=3, name='curr_entry')
+curr_entry <<= fetch_pc[2:5]
+new_state = pyrtl.WireVector(bitwidth=2, name='new_state')
+new_state <<= update_state(branch_hist_table[curr_entry], update_branch_taken)
+
+with pyrtl.conditional_assignment:
+    with update_prediction:
+        branch_hist_table[curr_entry] <<= new_state
+        with new_state == 0:
+            pred_taken |= 0
+        with new_state == 1:
+            pred_taken |= 0
+        with new_state == 2:
+            pred_taken |= 1
+        with new_state == 3:
+            pred_taken |= 1
+        
+
+
+
+
 
 #Testing
 if __name__ == "__main__":
